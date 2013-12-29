@@ -1,0 +1,9 @@
+hivetool bash scripts
+
+/home/hivetool/hive.sh
+
+reads the sensors
+reads the weather data
+writes the data to a log file
+write a temporary data file in xml format
+sends the xml file to hivetool.net
