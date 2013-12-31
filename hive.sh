@@ -57,6 +57,44 @@ fi
 TEMP=`echo "scale=1; ($TEMP-1)" | bc`
 TEMPF=`echo "scale=1; (($TEMP*9)/5)+32" | bc`
 
+
+
+DATA_GOOD=0
+COUNTER=1
+while [[  $COUNTER -lt 20 && $DATA_GOOD -eq 0 ]]; do
+      DATE2=`date +"%Y/%m/%d %H:%M:%S"`
+      TEMPerHUM=`/usr/local/bin/tempered /dev/hidraw3`
+      echo -ne "$DATE2 $COUNTER $? $TEMPerHUM \n" >> /home/hivetool/tempered.log
+      if [[ -n $TEMPerHUM ]]
+      then
+        HUMIDITY_2=`echo $TEMPerHUM | grep  -o "[0-9]*\.[0-9]\%" | grep -o "[0-9]*\.[0-9]"`
+        TEMP_2=`echo $TEMPerHUM | grep  -o "temperature \-*[0-9]*\.[0-9]" | grep -o "\-*[0-9]*\.[0-9]"`
+        if [[ $HUMIDITY ]]
+        then
+         DATA_GOOD=1
+        fi
+      fi
+      let "COUNTER += 1"
+      sleep 1
+done
+echo $COUNTER $TEMP_2 $HUMIDITY_2
+
+if [[ $COUNTER -gt 19 ]]
+then
+  echo "$DATE2 ERROR reading /dev/hidraw3" >> /home/hivetool/error.log
+fi
+
+if test $COUNTER -gt 2
+then
+  echo "$DATE WARNING reading /dev/hidraw3: retried $COUNTER" >> /home/hivetool/error.log
+fi
+
+TEMP_2=`echo "scale=1; (($TEMP_2)-0)" | bc`
+TEMPF_2=`echo "scale=1; (($TEMP_2*9)/5)+32" | bc`
+
+echo "TEMPerHUM_2 = $TEMP_2,$HUMIDITY_2"
+
+
 # 
 # get the local weather
 #
@@ -87,7 +125,7 @@ xml_dewpoint_f=`grep dewpoint_f /tmp/wx.xml`
 xml_precip_1hr_in=`grep precip_1hr_in /tmp/wx.xml`
 xml_precip_today_in=`grep precip_today_in /tmp/wx.xml`
 
-AMBIENT=$temp_c
+AMBIENT=$TEMP_2
 
 #echo "Temperature " $temp_f
 #echo "Wind Direction " $wind_dir
