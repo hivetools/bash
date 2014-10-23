@@ -1,108 +1,136 @@
 #!/bin/bash
-
-# redirect stdout and stderr to logfile
-rm /home/hivetool/hivetool.log
-exec >>/home/hivetool/hivetool.log 2>&1
-
-HOST=`hostname`
-
-DATE=`date +"%Y/%m/%d %H:%M:%S"`
-
-# read the scale
-# ### NOTE this is bad as it can hang the process! ###
+# ##############################################################################
+#                         hive.sh ver 0.4
 #
-while [[ ! $SCALE ]]
-do
-    echo -e -n "N\r\n" > /dev/ttyUSB0
-    read -t 3 SCALE < /dev/ttyUSB0
-    SCALE=`echo $SCALE | gawk --posix '/^\+ [0-9]{1,3}\.[0-9] lb$/'`
-done
-
-echo "scale: $SCALE\n"
-
-# read the TEMPerHUM
-#NOTE hidraw1 may need to be replaced with the correct device
-
-DATA_GOOD=0
-COUNTER=1
-while [[  $COUNTER -lt 20 && $DATA_GOOD -eq 0 ]]; do
-      DATE2=`date +"%Y/%m/%d %H:%M:%S"`
-      TEMPerHUM=`/usr/local/bin/tempered /dev/hidraw1`
-      echo -ne "$DATE2 $COUNTER $? $TEMPerHUM \n" >> /home/hivetool/tempered.log
-      if [[ -n $TEMPerHUM ]]
-      then
-        HUMIDITY=`echo $TEMPerHUM | grep  -o "[0-9]*\.[0-9]\%" | grep -o "[0-9]*\.[0-9]"`
-        TEMP=`echo $TEMPerHUM | grep  -o "temperature \-*[0-9]*\.[0-9]" | grep -o "\-*[0-9]*\.[0-9]"`
-        if [[ $HUMIDITY ]]
-        then
-         DATA_GOOD=1
-        fi
-      fi
-      let "COUNTER += 1"
-      sleep 1
-done
-echo $COUNTER $TEMP $HUMIDITY
-
-if [[ $COUNTER -gt 19 ]]
-then
-  echo "$DATE2 ERROR reading /dev/hidraw1" >> /home/hivetool/error.log
-fi
-
-if test $COUNTER -gt 2
-then
-  echo "$DATE WARNING reading /dev/hidraw1: retried $COUNTER" >> /home/hivetool/error.log
-fi
-
-
-TEMP=`echo "scale=1; ($TEMP-1)" | bc`
-TEMPF=`echo "scale=1; (($TEMP*9)/5)+32" | bc`
-
-
-
-DATA_GOOD=0
-COUNTER=1
-while [[  $COUNTER -lt 20 && $DATA_GOOD -eq 0 ]]; do
-      DATE2=`date +"%Y/%m/%d %H:%M:%S"`
-      TEMPerHUM=`/usr/local/bin/tempered /dev/hidraw3`
-      echo -ne "$DATE2 $COUNTER $? $TEMPerHUM \n" >> /home/hivetool/tempered.log
-      if [[ -n $TEMPerHUM ]]
-      then
-        HUMIDITY_2=`echo $TEMPerHUM | grep  -o "[0-9]*\.[0-9]\%" | grep -o "[0-9]*\.[0-9]"`
-        TEMP_2=`echo $TEMPerHUM | grep  -o "temperature \-*[0-9]*\.[0-9]" | grep -o "\-*[0-9]*\.[0-9]"`
-        if [[ $HUMIDITY ]]
-        then
-         DATA_GOOD=1
-        fi
-      fi
-      let "COUNTER += 1"
-      sleep 1
-done
-echo $COUNTER $TEMP_2 $HUMIDITY_2
-
-if [[ $COUNTER -gt 19 ]]
-then
-  echo "$DATE2 ERROR reading /dev/hidraw3" >> /home/hivetool/error.log
-fi
-
-if test $COUNTER -gt 2
-then
-  echo "$DATE WARNING reading /dev/hidraw3: retried $COUNTER" >> /home/hivetool/error.log
-fi
-
-TEMP_2=`echo "scale=1; (($TEMP_2)-0)" | bc`
-TEMPF_2=`echo "scale=1; (($TEMP_2*9)/5)+32" | bc`
-
-echo "TEMPerHUM_2 = $TEMP_2,$HUMIDITY_2"
-
-
+# Reads hive variables, logs them and sends the data to hivetool.net
 # 
-# get the local weather
+# May  use:
+# cpw200plus.sh         Reads weight from Adam Equipment CPW200plus scale
+# temperhum.sh          Read temperature and humidity from TEMPerHUM model 2
+# phidget.sh            Read weight from Phidgets Bridge board
+# hx711.sh              Read weight from HX711 board
+# mysql.sh              Log data to local SQL database
+# ##############################################################################
 #
-# ### NOTE replace KGADILLA1 with your local weather station ###
+# Set the hive name(s)
 #
-curl --retry 5 -s http://api.wunderground.com/weatherstation/WXCurrentObXML.asp?ID=KGADILLA1 > /tmp/wx.xml
+HIVE1_NAME="XP001"
+HIVE2_NAME=""
+HIVE1_ID=1
+#
+# Set the scale device(s) (this is usually /dev/ttyS0 or ttyUSB0)
+#
+HIVE1_SCALE_DEVICE="/dev/ttyUSB0"
+#HIVE2_SCALE_DEVICE="/dev/ttyUSB0"
+
+# Set the TEMPerHUM devices
+# To see the devices, run tempered with no argument
+#
+HIVE1_TEMP_DEVICE="/dev/hidraw1"
+#HIVE2_TEMP_DEVICE="/dev/hidraw3"
+#HIVE1_AMBIENT_TEMP_DEVICE="/dev/hidraw5"
+#
+# Set the Weather Underground weather station ID
+#
+WX_ID="KGACLAYT6"
+#
+HIVE1_WEIGHT=0
+HIVE1_TEMP=0
+HIVE1_HUMIDITY=0
+# ### END OF SETUP ###
+#
+#
+# Redirect stdout and stderr to logfile
+#
+#rm /home/hivetool/hivetool.log
+#exec >>/home/hivetool/hivetool.log 2>&1
+#
+# Get the date and time
+#
+DATE=`date +"%Y/%m/%d %H:%M:%S"`
+#
+# Read scale 1
+#
+#HIVE1_WEIGHT=$(source /home/hivetool/cpw200plus.sh -d $HIVE1_SCALE_DEVICE)
+#set -- junk $HIVE1_WEIGHT
+#shift
+#HIVE1_WEIGHT=$2
+echo "$HIVE1_NAME weight: $HIVE1_WEIGHT"
+#
+# Read scale 2
+#
+#HIVE2_WEIGHT=$(/home/hivetool/cpwplus200.sh -d $HIVE2_SCALE_DEVICE)
+#set -- junk $HIVE2_WEIGHT
+#shift
+#HIVE2_WEIGHT=$2
+echo "$HIVE2_NAME weight: $HIVE2_WEIGHT"
+#
+# Read hive 1 inside temp and humidity
+#
+if [ -n "$HIVE1_TEMP_DEVICE" ]
+then
+  TEMPerHUM=$(/home/hivetool/temperhum.sh -d $HIVE1_TEMP_DEVICE)
+  set -- junk $TEMPerHUM
+  shift
+  HIVE1_TEMP=$1
+  HIVE1_HUMIDITY=$2
+  if [ -z "$HIVE1_TEMP" ]
+  then
+    HIVE1_TEMP="NULL"
+    HIVE1_HUMIDITY="NULL"
+  fi
+else
+  HIVE1_TEMP="NULL"
+  HIVE1_HUMIDITY="NULL"
+fi
+echo "$HIVE1_NAME temperature: $HIVE1_TEMP humidity: $HIVE1_HUMIDITY"
+#
+# Read hive 2 inside temp and humidity
+#
+if [ -n "$HIVE2_TEMP_DEVICE" ]
+then
+ TEMPerHUM=$(/home/hivetool/temperhum.sh -d $HIVE2_TEMP_DEVICE)
+ set -- junk $TEMPerHUM
+ shift
+ HIVE2_TEMP=$1
+ HIVE2_HUMIDITY=$2
+  if [ -z "$HIVE2_TEMP" ]
+  then
+    HIVE2_TEMP="NULL"
+    HIVE2_HUMIDITY="NULL"
+  fi
+else
+ HIVE2_TEMP="NULL"
+ HIVE2_HUMIDITY="NULL"
+fi
+echo "$HIVE2_NAME temperature: $HIVE2_TEMP humidity: $HIVE2_HUMIDITY"
+#
+# Read outside temp and humidity
+#
+if [ -n "$HIVE1_AMBIENT_TEMP_DEVICE" ]
+then
+ TEMPerHUM=$(source /home/hivetool/temperhum.sh -d $HIVE1_AMBIENT_TEMP_DEVICE)
+ set -- junk $TEMPerHUM
+ shift
+ HIVE1_AMBIENT_TEMP=$1
+ HIVE1T_AMBIENT_HUMIDITY=$2
+  if [ -z "$HIVE1_AMBIENT_TEMP" ]
+  then
+    HIVE1_AMBIENT_TEMP="NULL"
+    HIVE1_AMBIENT_HUMIDITY="NULL"
+  fi
+else
+ HIVE1_AMBIENT_TEMP="NULL"
+ HIVE1_AMBIENT_HUMIDITY="NULL" 
+fi
+echo "Ambient temp: $HIVE1_AMBIENT_TEMP humidity: $HIVE1_AMBIENT_HUMIDITY"
+#
+# Get the weather from a local wx station via weatherunderground
+#
+curl --retry 5 http://api.wunderground.com/weatherstation/WXCurrentObXML.asp?ID=$WX_ID > /tmp/wx.xml
 temp_f=`grep temp_f /tmp/wx.xml | grep  -o "[0-9]*\.[0-9]*"`
 temp_c=`grep temp_c /tmp/wx.xml | grep  -o "[0-9]*\.[0-9]*"`
+relative_humidity=`grep relative_humidity /tmp/wx.xml | grep  -o "[0-9]*"`
 wind_dir=`grep wind_dir /tmp/wx.xml | grep -o "[A-Z]*"`
 wind_mph=`grep wind_mph /tmp/wx.xml | grep  -o "[0-9]*\.[0-9]*"`
 wind_gust_mph=`grep wind_gust_mph /tmp/wx.xml |  grep  -o "[0-9]*\.[0-9]*"`
@@ -111,48 +139,59 @@ dewpoint_f=`grep dewpoint_f /tmp/wx.xml |  grep  -o "[0-9]*\.[0-9]*"`
 #solar_radiation=`grep solar_radiation /tmp/wx.xml |  grep  -o "[0-9]*"`
 precip_1hr_in=`grep precip_1hr_in /tmp/wx.xml |  grep  -o "[0-9]*\.[0-9]*"`
 precip_today_in=`grep precip_today_in /tmp/wx.xml |  grep  -o "[0-9]*\.[0-9]*"`
-
-
-xml_temp_f=`grep temp_f /tmp/wx.xml`
-xml_temp_c=`grep temp_c /tmp/wx.xml`
-xml_relative_humidity=`grep relative_humidity /tmp/wx.xml`
-xml_wind_dir=`grep wind_dir /tmp/wx.xml`
-xml_wind_mph=`grep wind_mph /tmp/wx.xml`
-xml_wind_gust_mph=`grep wind_gust_mph /tmp/wx.xml`
-xml_pressure_mb=`grep pressure_mb /tmp/wx.xml`
-xml_dewpoint_f=`grep dewpoint_f /tmp/wx.xml`
-#solar_radiation=`grep solar_radiation /tmp/wx.xml`
-xml_precip_1hr_in=`grep precip_1hr_in /tmp/wx.xml`
-xml_precip_today_in=`grep precip_today_in /tmp/wx.xml`
-
-AMBIENT=$TEMP_2
-
-#echo "Temperature " $temp_f
-#echo "Wind Direction " $wind_dir
-#echo "Wind Speed " $wind_mph
-#echo "Gust " $wind_gust_mph
-#echo "Dewpoint " $dewpoint_f
-#echo "Relative Humidity " $relative_humidity
-#echo "Pressure " $pressure_in
-#echo "Pressure Trend " $pressure_trend
-#echo "Precip This Hour " $precip_1hr_in
-#echo "Precip Today " $precip_today_in
-
-
-echo "<hive_data>" > /tmp/hive.xml
-source /home/hivetool/xml.sh >> /tmp/hive.xml
-cat /tmp/wx.xml|grep -v "xml" >> /tmp/hive.xml
-echo "</hive_data>" >> /tmp/hive.xml
- 
-# Write everything to the log file
-echo -ne "\n"$DATE $SCALE $TEMP $AMBIENT $temp_f $wind_dir $wind_mph $wind_gust_mph $dewpoint_f $relative_humidity $pressure_mb $solar_radiation $WX_EVAPOTRANSPIRATION $WX_VAPOR_PRESSURE $precip_today_in>> /home/hivetool/hive.log
-
-
-#run the graphing program to create index.html and hive_graph.gif
-/var/www/htdocs/graph_hive.pl
-
-# send the data to hivetool.org
 #
-# ### NOTE replace user:password with the correct user and password ###
+# Write everything to hive 1 log file
 #
-curl --retry 5 -k -u user:password -X POST --data-binary @/tmp/hive.xml https://hivetool.org/private/test_xml4.pl  -H 'Accept: application/xml' -H 'Content-Type: application/xml'
+echo -ne "\n"$DATE $HIVE1_WEIGHT $HIVE1_TEMP $HIVE1_AMBIENT_TEMP $temp_f $wind_dir $wind_mph $wind_gust_mph $dewpoint_f $relative_humidity $pressure_mb $solar_radiation $WX_EVAPOTRANSPIRATION $WX_VAPOR_PRESSURE $precip_today_in>> /home/hivetool/$HIVE1_NAME.log
+#
+# Write everything to hive 2 log file
+#
+#echo -ne "\n"$DATE $HIVE2_WEIGHT $HIVE2_TEMP $HIVE1_AMBIENT_TEMP $temp_f $wind_dir $wind_mph $wind_gust_mph $dewpoint_f $relative_humidity $pressure_mb $solar_radiation $WX_EVAPOTRANSPIRATION $WX_VAPOR_PRESSURE $precip_today_in>> /home/hivetool/$HIVE2_NAME.log
+#
+#
+source /home/hivetool/sql.sh
+#
+#Run the graphing program to create index.html and hive_graph.gif
+# this
+#/var/www/htdocs/graph_hive.pl
+#  will have to be changed to something like this:
+#/var/www/htdocs/graph_hive.pl -l /home/hivetool/$HIVE1_NAME -o /var/www/htdocs/$HIVE1_NAME
+#/var/www/htdocs/graph_hive.pl -l /home/hivetool/$HIVE2_NAME -o /var/www/htdocs/$HIVE2_NAME
+#
+#
+# Create hive1 xml data file
+#
+# ### the variable names in xml.sh need to be changed so most of these assignments won't be necessary
+#
+HOST=$HIVE1_NAME
+SCALE=$HIVE1_WEIGHT
+TEMP=$HIVE1_TEMP
+AMBIENT=$HIVE1_AMBIENT_HUMIDITY
+HUMIDITY=$HIVE1_HUMIDITY
+HUMIDITY_2=$HIVE1_AMBIENT_HUMIDITY
+echo "<hive_data>" > /tmp/hive1.xml
+source /home/hivetool/xml.sh >> /tmp/hive1.xml
+cat /tmp/wx.xml|grep -v "xml" >> /tmp/hive1.xml
+echo "</hive_data>" >> /tmp/hive1.xml
+#
+# Send hive1 data to hivetool
+#
+/usr/bin/curl --retry 5 -k -u user:passwd -X POST --data-binary @/tmp/hive1.xml https://hivetool.org/private/log_hive.pl  -H 'Accept: application/xml' -H 'Content-Type: application/xml' 1>/tmp/hive_command.xml
+#
+# Create hive2 xml data file
+#
+#HOST=$HIVE2_NAME
+#SCALE=$HIVE2_WEIGHT
+#TEMP=$HIVE2_TEMP
+#AMBIENT=$HIVE1_AMBIENT_HUMIDITY
+#HUMIDITY=$HIVE2_HUMIDITY
+#HUMIDITY_2=$HIVE1_AMBIENT_HUMIDITY
+#echo "<hive_data>" > /tmp/hive2.xml
+#source /home/hivetool/xml.sh >> /tmp/hive2.xml
+#source /home/hivetool/xml_wx.sh >> /tmp/hive2.xml
+#echo "</hive_data>" >> /tmp/hive2.xml
+#
+# Send hive2 data to hivetool
+#
+#/usr/bin/curl --retry 5 -s -k -u user:passwd -X POST --data-binary @/tmp/hive2.xml https://hivetool.org/private/log_hive.pl  -H 'Accept: application/xml' -H 'Content-Type: application/xml' 1>/tmp/hive_command.xml
+
