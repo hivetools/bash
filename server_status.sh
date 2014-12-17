@@ -9,7 +9,9 @@ echo "                          * * * DISK SPACE * * *"
 /bin/df
 echo
 echo "                           * * * INTERNET * * *"
-/sbin/ifconfig eth0
+/sbin/iwconfig wlan0
+echo
+/sbin/ifconfig wlan0
 echo
 echo "                        * * * NTP CLOCK SYNCH * * *"
 /usr/bin/ntpq -p

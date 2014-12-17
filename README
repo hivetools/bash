@@ -5,5 +5,6 @@ hivetool bash scripts
 reads the sensors
 reads the weather data
 writes the data to a log file
+inserts a row into the local MySQL database
 write a temporary data file in xml format
 sends the xml file to hivetool.net

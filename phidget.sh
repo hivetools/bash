@@ -14,7 +14,7 @@ MILIVOLTS_TOTAL=`echo $SCALE | grep  -o "Total: \-*[0-9]*\.[0-9]*" | grep -o "\-
 #echo "Channel 2: $INPUT_2"
 #echo "Channel 3: $INPUT_3"
 
-WEIGHT_TOTAL=`echo "scale=2; (($MILIVOLTS_TOTAL*31.215)+0)/1" | bc`
+WEIGHT_TOTAL=`echo "scale=2; (($MILIVOLTS_TOTAL*31.215)-1.76)/1" | bc`
 
 DATE=`date +"%Y/%m/%d %H:%M:%S"`
 echo -e "$DATE $INPUT_0 $INPUT_1 $INPUT_2 $INPUT_3 $MILIVOLTS_TOTAL $WEIGHT_TOTAL" >> /home/hivetool/phidget.log

@@ -22,8 +22,9 @@ do
       then
         HUMIDITY=`echo $TEMPerHUM | grep  -o "\-*[0-9]*\.[0-9]\%" | grep -o "\-*[0-9]*\.[0-9]"`
         TEMP=`echo $TEMPerHUM | grep  -o "temperature \-*[0-9]*\.[0-9]" | grep -o "\-*[0-9]*\.[0-9]"`
-        st=`echo "$HUMIDITY < 0" | bc`
-        if [[ $st -eq 0 ]]
+        HUMIDITY_TEST=`echo "$HUMIDITY < 0" | bc`
+        TEMP_TEST=`echo "$TEMP > -50" | bc`
+        if [ $HUMIDITY_TEST -eq 0 ] && [ $TEMP_TEST -ne 0 ]
         then
          DATA_GOOD=1
         else
@@ -47,5 +48,6 @@ then
 fi
 
 echo $TEMP $HUMIDITY
+
 
 
